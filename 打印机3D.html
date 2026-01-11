@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>拓维3D打印机控制台</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			margin: 0;
+			padding: 0;
+			background-color: #f5f5f5;
+		}
+		.container {
+			max-width: 800px;
+			margin: 20px auto;
+			background-color: white;
+			padding: 20px;
+			border-radius: 5px;
+			box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+		}
+		header {
+			text-align: center;
+			padding: 10px 0;
+			color: #333;
+			border-bottom: 1px solid #eee;
+		}
+		.status-bar {
+			background-color: #ddd;
+			padding: 10px;
+			border-radius: 5px;
+			display: flex;
+			justify-content: space-between;
+			margin-bottom: 20px;
+		}
+		.menu-item {
+			margin: 10px 0;
+			padding: 10px;
+			border-radius: 5px;
+			background-color: #f0f0f0;
+			cursor: pointer;
+			transition: background-color 0.3s;
+		}
+		.menu-item:hover {
+			background-color: #e0e0e0;
+		}
+		.menu-item button {
+			width: 100%;
+			padding: 10px;
+			border: none;
+			background-color: #0078d7;
+			color: white;
+			border-radius: 3px;
+			cursor: pointer;
+		}
+		.menu-item button:hover {
+			background-color: #005aa5;
+		}
+		.menu-item p {
+			margin: 5px 0;
+		}
+		input {
+			padding: 5px;
+			margin: 5px 0;
+			width: 100%;
+			box-sizing: border-box;
+		}
+		button {
+			padding: 10px 15px;
+			margin: 5px;
+			background-color: #0078d7;
+			color: white;
+			border: none;
+			border-radius: 3px;
+			cursor: pointer;
+		}
+		button:hover {
+			background-color: #005aa5;
+		}
+		.history-item {
+			margin: 10px 0;
+			padding: 10px;
+			border-bottom: 1px solid #eee;
+		}
+		.modal {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0, 0, 0, 0.5);
+			z-index: 100;
+			justify-content: center;
+			align-items: center;
+		}
+		.modal-content {
+			background-color: white;
+			padding: 20px;
+			border-radius: 5px;
+			width: 400px;
+			max-width: 80%;
+			max-height: 80%;
+			overflow-y: auto;
+		}
+		.modal-close {
+			float: right;
+			cursor: pointer;
+			font-size: 24px;
+			font-weight: bold;
+		}
+		#progress-container {
+			width: 100%;
+			background-color: #ddd;
+			border-radius: 5px;
+			margin-top: 10px;
+			height: 20px;
+		}
+		#progress-bar {
+			width: 0%;
+			height: 100%;
+			background-color: #4CAF50;
+			border-radius: 5px;
+			text-align: center;
+			color: white;
+			line-height: 20px;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<header>
+			<h1>拓维3D打印机控制台</h1>
+		</header>
+		
+		<div id="pairing-page">
+			<div class="status-bar">
+				<div>当前状态: 未连接打印机</div>
+				<div id="current-time"></div>
+			</div>
+			<h2>请选择要配对的打印机</h2>
+			<div class="menu-item">
+				<button onclick="pairPrinter('拓维3D打印机 Plus3')">拓维3D打印机 Plus3</button>
+			</div>
+			<div class="menu-item">
+				<button onclick="pairPrinter('拓维3D打印机 Plus4')">拓维3D打印机 Plus4</button>
+			</div>
+			<div class="menu-item">
+				<button onclick="exitApp()">退出程序</button>
+			</div>
+		</div>
+		
+		<div id="main-menu" style="display: none;">
+			<div class="status-bar">
+				<div>当前设备: <span id="current-printer">未连接</span></div>
+				<div id="current-time"></div>
+			</div>
+			<h2>主菜单</h2>
+			<div class="menu-item">
+				<button onclick="showPrintForm()">开始打印</button>
+			</div>
+			<div class="menu-item">
+				<button onclick="showPairingPage()">重新配对打印机</button>
+			</div>
+			<div class="menu-item">
+				<button onclick="showHistory()">查看打印历史</button>
+			</div>
+			<div class="menu-item">
+				<button onclick="exitApp()">退出程序</button>
+			</div>
+		</div>
+		
+		<div id="printing-page" style="display: none;">
+			<div class="status-bar">
+				<div>当前任务: 打印中</div>
+				<div id="current-time"></div>
+			</div>
+			<h2 id="printing-item">正在打印...</h2>
+			<p id="print-time-display">剩余时间: 00:00</p>
+			<div id="progress-container">
+				<div id="progress-bar">0%</div>
+			</div>
+			<div id="extend-container" style="display: none; margin-top: 20px;">
+				<button onclick="extendPrintTime()">延长5分钟</button>
+				<button onclick="pausePrint()">暂停打印</button>
+			</div>
+		</div>
+		
+		<div id="history-page" style="display: none;">
+			<div class="status-bar">
+				<div>当前设备: 历史记录</div>
+				<div id="current-time"></div>
+			</div>
+			<h2>打印历史记录</h2>
+			<div id="history-list"></div>
+			<div style="margin-top: 20px;">
+				<button onclick="backToMainMenu()">返回主菜单</button>
+			</div>
+		</div>
+	</div>
+	
+	<div id="print-form-modal" class="modal">
+		<div class="modal-content">
+			<span class="modal-close" onclick="closeModal('print-form-modal')">&times;</span>
+			<h2>打印设置</h2>
+			<input type="text" id="item-name" placeholder="请输入打印物名称">
+			<input type="number" id="print-time" placeholder="请输入打印时间（分钟）">
+			<div style="text-align: center; margin-top: 20px;">
+				<button onclick="startPrinting()">开始打印</button>
+			</div>
+		</div>
+	</div>
+	
+	<div id="pairing-modal" class="modal">
+		<div class="modal-content">
+			<span class="modal-close" onclick="closeModal('pairing-modal')">&times;</span>
+			<div id="pairing-message">正在连接到打印机，请稍候...</div>
+		</div>
+	</div>
+
+	<script>
+		let pairedPrinter = null;
+		let printItem = null;
+		let printTimeRemaining = 0;
+		let printTimeTotal = 0;
+		let printInterval = null;
+		let printPaused = false;
+		let printHistory = [];
+		
+		// 初始化页面
+		function init() {
+			updateDateTime();
+			loadHistory();
+			document.getElementById('current-printer').textContent = pairedPrinter || '未连接';
+		}
+		
+		// 更新时间显示
+		function updateDateTime() {
+			const now = new Date();
+			const timeString = now.toLocaleTimeString();
+			document.getElementById('current-time').textContent = timeString;
+			setTimeout(updateDateTime, 1000);
+		}
+		
+		// 加载历史记录
+		function loadHistory() {
+			// 从本地存储加载历史记录
+			const savedHistory = localStorage.getItem('printHistory');
+			if (savedHistory) {
+				printHistory = JSON.parse(savedHistory);
+			}
+		}
+		
+		// 保存历史记录
+		function saveHistory() {
+			localStorage.setItem('printHistory', JSON.stringify(printHistory));
+		}
+		
+		// 显示配对页面
+		function showPairingPage() {
+			document.getElementById('pairing-page').style.display = 'block';
+			document.getElementById('main-menu').style.display = 'none';
+			document.getElementById('printing-page').style.display = 'none';
+			document.getElementById('history-page').style.display = 'none';
+		}
+		
+		// 显示主菜单
+		function showMainMenu() {
+			document.getElementById('pairing-page').style.display = 'none';
+			document.getElementById('main-menu').style.display = 'block';
+			document.getElementById('printing-page').style.display = 'none';
+			document.getElementById('history-page').style.display = 'none';
+			document.getElementById('current-printer').textContent = pairedPrinter || '未连接';
+		}
+		
+		// 显示打印页面
+		function showPrintPage() {
+			document.getElementById('pairing-page').style.display = 'none';
+			document.getElementById('main-menu').style.display = 'none';
+			document.getElementById('printing-page').style.display = 'block';
+			document.getElementById('history-page').style.display = 'none';
+		}
+		
+		// 显示历史记录页面
+		function showHistory() {
+			renderHistory();
+			document.getElementById('pairing-page').style.display = 'none';
+			document.getElementById('main-menu').style.display = 'none';
+			document.getElementById('printing-page').style.display = 'none';
+			document.getElementById('history-page').style.display = 'block';
+		}
+		
+		// 返回主菜单
+		function backToMainMenu() {
+			showMainMenu();
+		}
+		
+		// 配对打印机
+		function pairPrinter(printerName) {
+			pairedPrinter = printerName;
+			document.getElementById('current-printer').textContent = printerName;
+			document.getElementById('pairing-modal').style.display = 'flex';
+			
+			let count = 5;
+			const pairingInterval = setInterval(() => {
+				document.getElementById('pairing-message').textContent = `正在连接到 ${printerName}... ${count}秒`;
+				count--;
+				if (count <= 0) {
+					clearInterval(pairingInterval);
+					document.getElementById('pairing-modal').style.display = 'none';
+					showMainMenu();
+				}
+			}, 1000);
+		}
+		
+		// 显示打印表单
+		function showPrintForm() {
+			document.getElementById('item-name').value = '';
+			document.getElementById('print-time').value = '';
+			document.getElementById('print-form-modal').style.display = 'flex';
+		}
+		
+		// 关闭模态框
+		function closeModal(modalId) {
+			document.getElementById(modalId).style.display = 'none';
+		}
+		
+		// 开始打印
+		function startPrinting() {
+			const itemName = document.getElementById('item-name').value;
+			const printTime = document.getElementById('print-time').value;
+			
+			if (!itemName || !printTime) {
+				alert('请输入打印物名称和打印时间！');
+				return;
+			}
+			
+			closeModal('print-form-modal');
+			printItem = itemName;
+			printTimeRemaining = printTime * 60; // 转换为秒
+			printTimeTotal = printTimeRemaining;
+			printPaused = false;
+			document.getElementById('printing-item').textContent = `正在打印: ${itemName}`;
+			document.getElementById('print-time-display').textContent = `剩余时间: ${formatTime(printTimeRemaining)}`;
+			document.getElementById('extend-container').style.display = 'none';
+			document.getElementById('progress-bar').style.width = '0%';
+			document.getElementById('progress-bar').textContent = '0%';
+			showPrintPage();
+			
+			printInterval = setInterval(updatePrintProgress, 1000);
+		}
+		
+		// 更新打印进度
+		function updatePrintProgress() {
+			if (!printPaused) {
+				printTimeRemaining--;
+				const progress = ((printTimeTotal - printTimeRemaining) / printTimeTotal) * 100;
+				document.getElementById('print-time-display').textContent = `剩余时间: ${formatTime(printTimeRemaining)}`;
+				document.getElementById('progress-bar').style.width = `${progress}%`;
+				document.getElementById('progress-bar').textContent = `${Math.round(progress)}%`;
+				
+				if (printTimeRemaining <= 0) {
+					clearInterval(printInterval);
+					document.getElementById('extend-container').style.display = 'block';
+				}
+			}
+		}
+		
+		// 延长打印时间
+		function extendPrintTime() {
+			printTimeRemaining = 5 * 60; // 延长5分钟
+			printTimeTotal += printTimeRemaining;
+			printPaused = false;
+			document.getElementById('print-time-display').textContent = `剩余时间: ${formatTime(printTimeRemaining)}`;
+			document.getElementById('extend-container').style.display = 'none';
+			if (!printInterval) {
+				printInterval = setInterval(updatePrintProgress, 1000);
+			}
+		}
+		
+		// 暂停打印
+		function pausePrint() {
+			printPaused = true;
+			document.getElementById('extend-container').innerHTML = `
+				<button onclick="resumePrint()">继续打印</button><button onclick="cancelPrint()">取消打印</button>
+			`;
+		}
+		
+		// 继续打印
+		function resumePrint() {
+			printPaused = false;
+			document.getElementById('extend-container').innerHTML = `
+				<button onclick="extendPrintTime()">延长5分钟</button>
+				<button onclick="pausePrint()">暂停打印</button>
+			`;
+		}
+		
+		// 取消打印
+		function cancelPrint() {
+			clearInterval(printInterval);
+			printInterval = null;
+			showMainMenu();
+			alert('打印已取消');
+		}
+		
+		// 保存打印历史
+		function savePrintHistory() {
+			if (printItem && pairedPrinter) {
+				const printHistoryItem = {
+					item: printItem,
+					printer: pairedPrinter,
+					startTime: new Date().toLocaleString(),
+					duration: printTimeTotal / 60 // 分钟
+				};
+				printHistory.push(printHistoryItem);
+				saveHistory();
+				printItem = null;
+				printTimeTotal = 0;
+			}
+		}
+		
+		// 渲染历史记录
+		function renderHistory() {
+			const historyList = document.getElementById('history-list');
+			historyList.innerHTML = '';
+			
+			if (printHistory.length === 0) {
+				historyList.innerHTML = '<p>暂无打印历史记录</p>';
+				return;
+			}
+			
+			printHistory.forEach(item => {
+				const historyItem = document.createElement('div');
+				historyItem.className = 'history-item';
+				historyItem.innerHTML = `
+					<h3>${item.item}</h3>
+					<p>打印机: ${item.printer}</p>
+					<p>开始时间: ${item.startTime}</p>
+					<p>持续时间: ${item.duration} 分钟</p>
+				`;
+				historyList.appendChild(historyItem);
+			});
+		}
+		
+		// 退出程序
+		function exitApp() {
+			savePrintHistory();
+			if (confirm('确定要退出程序吗？')) {
+				alert('感谢使用，再见！');
+				// 在实际应用中，这里可以重定向到一个退出页面或关闭窗口
+				window.location.href = 'about:blank';
+			}
+		}
+		
+		// 格式化时间
+		function formatTime(seconds) {
+			const mins = Math.floor(seconds / 60);
+			const secs = seconds % 60;
+			return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+		}
+		
+		// 页面加载完成后初始化
+		window.onload = init;
+	</script>
+</body>
+</html>
